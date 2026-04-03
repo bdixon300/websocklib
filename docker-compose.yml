@@ -1,0 +1,57 @@
+services:
+
+  # Interactive development shell — source is bind-mounted so edits on the
+  # host are reflected immediately.  Run `make shell` to enter.
+  shell:
+    build:
+      context: .
+      target: base
+    volumes:
+      - .:/workspace
+      - conan_cache:/root/.conan2
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    command: bash
+
+  # One-shot build: installs Conan deps and compiles the library + tests.
+  build:
+    build:
+      context: .
+      target: base
+    volumes:
+      - .:/workspace
+      - conan_cache:/root/.conan2
+    working_dir: /workspace
+    command: >
+      bash -c "
+        conan install . --output-folder=build --build=missing -s build_type=Debug &&
+        cmake -B build
+          -DCMAKE_TOOLCHAIN_FILE=build/conan_toolchain.cmake
+          -DCMAKE_BUILD_TYPE=Debug
+          -G Ninja &&
+        cmake --build build --parallel
+      "
+
+  # One-shot test runner: builds (if needed) then runs ctest.
+  test:
+    build:
+      context: .
+      target: base
+    volumes:
+      - .:/workspace
+      - conan_cache:/root/.conan2
+    working_dir: /workspace
+    command: >
+      bash -c "
+        conan install . --output-folder=build --build=missing -s build_type=Debug &&
+        cmake -B build
+          -DCMAKE_TOOLCHAIN_FILE=build/conan_toolchain.cmake
+          -DCMAKE_BUILD_TYPE=Debug
+          -G Ninja &&
+        cmake --build build --parallel &&
+        ctest --test-dir build --output-on-failure
+      "
+
+volumes:
+  conan_cache:
