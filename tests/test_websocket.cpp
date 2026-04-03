@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "websocklib/websocket.hpp"
+#include "websocket.hpp"
 
 TEST(WebSocketTest, Placeholder) {
     SUCCEED();

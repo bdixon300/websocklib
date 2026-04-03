@@ -16,8 +16,8 @@ add_library(websocklib
 
 target_include_directories(websocklib
     PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-        $<INSTALL_INTERFACE:include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
+        $<INSTALL_INTERFACE:src>
 )
 
 target_link_libraries(websocklib

@@ -23,13 +23,10 @@ services:
       - .:/workspace
       - conan_cache:/root/.conan2
     working_dir: /workspace
-    command: >
+    command: >-
       bash -c "
         conan install . --output-folder=build --build=missing -s build_type=Debug &&
-        cmake -B build
-          -DCMAKE_TOOLCHAIN_FILE=build/conan_toolchain.cmake
-          -DCMAKE_BUILD_TYPE=Debug
-          -G Ninja &&
+        cmake -B build -DCMAKE_TOOLCHAIN_FILE=build/conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Debug -G Ninja &&
         cmake --build build --parallel
       "
 
@@ -42,13 +39,10 @@ services:
       - .:/workspace
       - conan_cache:/root/.conan2
     working_dir: /workspace
-    command: >
+    command: >-
       bash -c "
         conan install . --output-folder=build --build=missing -s build_type=Debug &&
-        cmake -B build
-          -DCMAKE_TOOLCHAIN_FILE=build/conan_toolchain.cmake
-          -DCMAKE_BUILD_TYPE=Debug
-          -G Ninja &&
+        cmake -B build -DCMAKE_TOOLCHAIN_FILE=build/conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Debug -G Ninja &&
         cmake --build build --parallel &&
         ctest --test-dir build --output-on-failure
       "
