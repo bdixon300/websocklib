@@ -148,6 +148,7 @@ void TCPClient::receiveMessages()
         }
 
         // Extract information from data
+        std::lock_guard<std::mutex> lock(m_packetMutex);
         m_packetBuffer.insert(m_packetBuffer.begin(), tmpBuffer, tmpBuffer + numBytesRead);
     }
 }
@@ -156,10 +157,7 @@ void TCPClient::processMessages()
 {
     while (m_connected)
     {
-        // TODO busy polls the packet buffer data till we have something to decode??
-        // read from m_packetBuffer and parse the data
-
-        // Only once packet buffer is collected everything 
+        std::lock_guard<std::mutex> lock(m_packetMutex);
         m_packetProcessorCallback(m_packetBuffer);
     }
 }

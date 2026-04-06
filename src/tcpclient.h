@@ -14,6 +14,7 @@
 #include <thread>
 #include <span>
 #include <functional>
+#include <mutex>
 
 #include <cstring>
 
@@ -63,15 +64,6 @@ class TCPClient {
 
         // IP Address the TCP Socket will connect with (in string format)
         std::string m_ipAddr;
-        
-        // Port number the TCP Socket will connect with
-        unsigned int m_portNumber;
-
-        // Private member containing file descripter to TCP socket once opened.
-        int m_socketFd;
-
-        // Thread safe boolean flag indicating a connection is established
-        std::atomic<bool> m_connected{false};
 
         // Thread that will receive messages before being handed over for 
         // processing once TCP connection is established
@@ -80,11 +72,23 @@ class TCPClient {
         // Thread that will process messages once TCP connection is established
         std::thread m_processingThread;
 
+        // Mutex to prevent race conditions on the packet buffer
+        std::mutex m_packetMutex;
+
         // Packet buffer to hold packets as they are collected from server
         std::vector<uint8_t> m_packetBuffer;
 
         // Function callback to handle packets stored in packet buffer
         std::function<void(std::vector<uint8_t>& packetBuffer)> m_packetProcessorCallback;
+
+        // Port number the TCP Socket will connect with
+        unsigned int m_portNumber;
+
+        // Private member containing file descripter to TCP socket once opened.
+        int m_socketFd;
+
+        // Thread safe boolean flag indicating a connection is established
+        std::atomic<bool> m_connected{false};
 };
 
 
