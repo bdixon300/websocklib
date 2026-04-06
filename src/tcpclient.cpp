@@ -90,29 +90,11 @@ TCPClient::~TCPClient()
 
 void TCPClient::sendMessage(const std::span<uint8_t>& msgPayload)
 {
-    // TODO - Not yet implemented
-    // use the write() sys call
-    /**
-     * We need to send this in raw text:
-     * 
-     * GET /chat HTTP/1.1\r\n
-        Host: example.com\r\n
-        Upgrade: websocket\r\n
-        Connection: Upgrade\r\n
-        Sec-WebSocket-Key: <base64 encoded 16 random bytes>\r\n
-        Sec-WebSocket-Version: 13\r\n
-        \r\n
-    
-        Once done, We should receive a response as follows ->
-
-        HTTP/1.1 101 Switching Protocols\r\n
-        Upgrade: websocket\r\n
-        Connection: Upgrade\r\n
-        Sec-WebSocket-Accept: <base64 encoded SHA-1 hash>\r\n
-        \r\n
-     * 
-     */
-    (void)msgPayload;
+    int numBytesSent = write(m_socketFd, msgPayload.data(), msgPayload.size_bytes());
+    if (numBytesSent < 0)
+    {
+        throw std::runtime_error("Unexpected Error when Sending bytes to TCP socket/TCP server!");
+    }
 }
 
 
@@ -136,7 +118,7 @@ void TCPClient::receiveMessages()
             }
             else
             {
-                throw std::runtime_error("Unexpected Error when reading bytes from TCP socket!");
+                throw std::runtime_error("Unexpected Error when reading bytes from TCP socket/TCP server!");
             }
         }
 
