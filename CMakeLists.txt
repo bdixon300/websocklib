@@ -12,6 +12,9 @@ find_package(GTest REQUIRED)
 # ---- Library ----
 add_library(websocklib
     src/websocket.cpp
+    src/tcpclient.cpp
+    src/webframeserializer.cpp
+    src/httpserializer.cpp
 )
 
 target_include_directories(websocklib
