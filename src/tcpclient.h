@@ -34,7 +34,9 @@ constexpr unsigned int MAX_TCP_PACKET_PAYLOAD_SIZE = 65535;
  */
 class TCPClient {
     public:
-        TCPClient(const std::string& ipAddr, unsigned int portNumber = DEFAULT_WS_PORT);
+        TCPClient(const std::string& ipAddr,
+                  const std::function<void(std::vector<uint8_t>& packetBuffer)>& packetProcessorCallback,
+                  unsigned int portNumber = DEFAULT_WS_PORT);
         ~TCPClient();
 
         // Method to initiate TCP connection

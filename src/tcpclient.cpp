@@ -2,8 +2,11 @@
 
 namespace websocklib {
 
-TCPClient::TCPClient(const std::string& ipAddr, unsigned int portNumber): 
-    m_ipAddr(ipAddr), m_portNumber(portNumber) {}
+TCPClient::TCPClient(
+    const std::string& ipAddr,
+    const std::function<void(std::vector<uint8_t>& packetBuffer)>& packetProcessorCallback,
+    unsigned int portNumber): 
+    m_ipAddr(ipAddr), m_packetProcessorCallback(packetProcessorCallback), m_portNumber(portNumber) {}
 
 void TCPClient::tcpConnect()
 {
@@ -90,7 +93,7 @@ void TCPClient::sendMessage(const std::span<uint8_t>& msgPayload)
     // TODO - Not yet implemented
     // use the write() sys call
     /**
-     * You need to send this in raw text:
+     * We need to send this in raw text:
      * 
      * GET /chat HTTP/1.1\r\n
         Host: example.com\r\n
@@ -100,7 +103,7 @@ void TCPClient::sendMessage(const std::span<uint8_t>& msgPayload)
         Sec-WebSocket-Version: 13\r\n
         \r\n
     
-        Once done, you should receive a response as follows ->
+        Once done, We should receive a response as follows ->
 
         HTTP/1.1 101 Switching Protocols\r\n
         Upgrade: websocket\r\n
