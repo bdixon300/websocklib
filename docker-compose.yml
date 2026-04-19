@@ -35,6 +35,7 @@ services:
     build:
       context: .
       target: base
+    network_mode: host          # <-- add this
     volumes:
       - .:/workspace
       - conan_cache:/root/.conan2

@@ -1,5 +1,6 @@
 add_executable(websocklib_tests
-    test_websocket.cpp
+    test_tcpclient.cpp
+    test_tcpserver.cpp
 )
 
 target_link_libraries(websocklib_tests

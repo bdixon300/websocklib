@@ -1,11 +1,10 @@
 #pragma once
 
-#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-
+#include <poll.h>
 
 #include <string>
 #include <vector>
@@ -14,105 +13,62 @@
 #include <thread>
 #include <span>
 #include <functional>
-#include <mutex>
-
+#include <cerrno>
 #include <cstring>
+
+#include "tcpcommon.h"
 
 namespace websocklib {
 
-// Default Port used in the Web socket protocol
-constexpr unsigned int DEFAULT_WS_PORT = 80;
-
-// Theoretical limit is 64KB, but we will assume we follow MTU limit (1500 bytes)
-constexpr unsigned int MAX_TCP_PACKET_PAYLOAD_SIZE = 65535;
-
-// Max number of connection requests to listen to at a time
-constexpr unsigned int MAX_BACKLOG = 5;
-
-/**
- * 
- * TCP Server class. This class leverages the BSD socket library / linux sys calls
- * to establish a TCP server, allowing bidrectional communication (sending messages and receiving messages)
- * Class takes callbacks that can be used to asynchronously send/receive network packets.
- * 
- */
+// Minimal TCP Server implementation
+// Not designed to scale, mainly for testing TCP client/websocket client implementation 
+// (only handles one client connection at a time)
 class TCPServer {
     public:
         TCPServer(const std::string& ipAddr,
-                  const std::function<void(std::vector<uint8_t>& packetBuffer)>& packetProcessorCallback,
+                  const std::function<void(std::vector<uint8_t>&)>& packetProcessorCallback,
                   unsigned int portNumber = DEFAULT_WS_PORT);
         ~TCPServer();
 
-        // Method to initiate TCP start
         void start();
-
-        // Method to end TCP server
         void stop();
-
-        // Method to send data to TCP server
         void sendMessage(const std::span<uint8_t>& msgPayload);
+        bool isClientConnected() const { return m_connected; }
 
     private:
-        /*
-            Helper function that continuously loops on accept calls from the BSD socket library
-            when an accept is received (ie a TCP client has sent a connection request)
-            we fork a new process for the given connection and continue to loop until the server is stopped.
-        */
-       void waitForConnection();
-
-       /*
-            Helper function that will be called once a TCP connection is established,
-            it will continously call receiveMessages and create a new thread to run 
-            processMessages asynchronously
-       */
-       void handleClient();
-    
-        /* 
-            Helper function that runs in a dedicated thread to receive packets 
-            asynchronously.
-        */
+        void waitForConnection();
+        void handleClient();
         void receiveMessages();
 
-        /*
-            Helper function to process packets that have been collected in the packet
-            buffer
-        */
-        void processMessages();
-
-        // IP Address the TCP Socket will connect with (in string format)
+        // Ip address of the server
         std::string m_ipAddr;
 
-        // Thread that will receive messages before being handed over for 
-        // processing once TCP connection is established
-        std::thread m_receivingThread;
-
-        // Thread that will process messages once TCP connection is established
-        std::thread m_processingThread;
-
-        // Mutex to prevent race conditions on the packet buffer
-        std::mutex m_packetMutex;
-
-        // Packet buffer to hold packets as they are collected from server
-        std::vector<uint8_t> m_packetBuffer;
-
-        // Function callback to handle packets stored in packet buffer
-        std::function<void(std::vector<uint8_t>& packetBuffer)> m_packetProcessorCallback;
-
-        // Port number the TCP Socket will connect with
+        // Port number to bind server socket to
         unsigned int m_portNumber;
 
-        // Private member containing file descripter to TCP socket once opened.
-        int m_socketFd;
+        // callback to process packets received from client
+        std::function<void(std::vector<uint8_t>&)> m_packetProcessorCallback;
 
-        // client socket fd - file descriptor for TCP socket of receiving client
-        int m_clientSocketFd;
+        // Packet buffer
+        std::vector<uint8_t> m_packetBuffer;
 
-        // Thread safe boolean flag indicating a TCP server has started
+        // Thread to prevent blocking on server. When accept moves on a client has attempted to establish a connection
+        std::thread m_acceptThread;
+
+        // Server Socket FD
+        std::atomic<int> m_socketFd{-1};
+
+        // Client Side Socket FD (once a connection is established)
+        std::atomic<int> m_clientSocketFd{-1};
+
+        // Bool flag to indicate a TCP Server has started and is waiting on a connection via accept() in a separate thread
         std::atomic<bool> m_started{false};
-
-        // Thread safe boolean flag indicating a TCP connection has been established between a client and a server
+        
+        // Bool flag to indicate a TCP Server has connected to a Client
         std::atomic<bool> m_connected{false};
-};
 
+        // Pipe for terminating connection/TCP server (read/recv calls are blocking till client sends data, this allows for immediate termination)
+        int m_cancelPipe[2] = {-1, -1};
+};
 
 } // namespace websocklib
