@@ -28,6 +28,9 @@ target_link_libraries(websocklib
         Boost::headers
 )
 
+find_package(OpenSSL REQUIRED)
+target_link_libraries(websocklib PRIVATE OpenSSL::SSL OpenSSL::Crypto)
+
 target_compile_options(websocklib PRIVATE -Wall -Wextra -Wpedantic)
 
 # ---- Tests ----
