@@ -1,12 +1,15 @@
 #pragma once
 
+#include <cstdint>
+#include <vector>
+
 namespace websocklib {
 
 /**
- * 
+ *
  * Will process/parse TCP packets into appropriate payload format per RFC :
- * 
- * 
+ *
+ *
  *       0                   1                   2                   3
       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
      +-+-+-+-+-------+-+-------------+-------------------------------+
@@ -25,18 +28,19 @@ namespace websocklib {
      + - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - +
      |                     Payload Data continued ...                |
      +---------------------------------------------------------------+
- * 
- * 
- * 
- * 
+ *
+ *
+ *
+ *
  */
 class WebFrameSerializer {
-    public:
-        WebFrameSerializer();
-        ~WebFrameSerializer();
+public:
+  WebFrameSerializer();
+  ~WebFrameSerializer();
 
-    private:
+  void convertRawPacketsToWebframes(std::vector<uint8_t> &packets);
+
+private:
 };
-
 
 } // namespace websocklib

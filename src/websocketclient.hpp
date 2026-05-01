@@ -1,6 +1,8 @@
 #pragma once
 
 #include <string>
+#include "tcpclient.h"
+#include "webframeserializer.h"
 
 namespace websocklib {
 
@@ -26,15 +28,17 @@ private:
     // sends handshake to TCP (HTTP payload required)
     void sendHandshake();
 
+    // Handle to retrieve TCP packets and convert them to websocket frames
+    void readDataHandle(std::vector<uint8_t>& packets);
+
     // URL to connect to using the websocket protocol
     std::string m_hostUrl;
 
-    // TCP Client for reading / writing payloads using web socket protocol
-    // TODO - Implement/integrate the TCP client here
-    //TCPClient m_tcpClient;
+    // use webframe serializer to decode the bytes into readable format
+    WebFrameSerializer m_webFrameSerializer;
 
-    // TODO - use webframe serializer to decode the bytes into readable format
-    // WebFrameSerializer m_webFrameSerializer
+    // TCP Client for reading / writing payloads using web socket protocol
+    TCPClient m_tcpClient;
 };
 
 } // namespace websocklib
