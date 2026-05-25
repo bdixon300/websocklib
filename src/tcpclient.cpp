@@ -4,9 +4,11 @@ namespace websocklib {
 
 TCPClient::TCPClient(const std::string &ipAddr,
                      const std::function<void(std::vector<uint8_t> &)> &cb,
-                     unsigned int portNumber)
+                     unsigned int portNumber,
+                     std::function<void()> disconnectCallback)
     : m_ipAddr(ipAddr), m_portNumber(portNumber),
-      m_packetProcessorCallback(cb) {}
+      m_packetProcessorCallback(cb),
+      m_disconnectCallback(std::move(disconnectCallback)) {}
 
 void TCPClient::tcpConnect() {
   if (pipe(m_cancelPipe) < 0)
@@ -100,6 +102,8 @@ void TCPClient::receiveMessages() {
     m_packetProcessorCallback(m_packetBuffer);
   }
   m_connected = false;
+  if (m_disconnectCallback)
+    m_disconnectCallback();
 }
 
 } // namespace websocklib

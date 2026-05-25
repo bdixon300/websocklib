@@ -25,7 +25,8 @@ public:
   TCPClient(const std::string &ipAddr,
             const std::function<void(std::vector<uint8_t> &)>
                 &packetProcessorCallback,
-            unsigned int portNumber = DEFAULT_WS_PORT);
+            unsigned int portNumber = DEFAULT_WS_PORT,
+            std::function<void()> disconnectCallback = nullptr);
   ~TCPClient();
 
   void tcpConnect();
@@ -44,6 +45,9 @@ private:
 
   // Callback when handling data received from TCP server
   std::function<void(std::vector<uint8_t> &)> m_packetProcessorCallback;
+
+  // Callback invoked once when the receive loop exits (server close or error)
+  std::function<void()> m_disconnectCallback;
 
   // Intermediate storage of packets received from TCP Server
   std::vector<uint8_t> m_packetBuffer;

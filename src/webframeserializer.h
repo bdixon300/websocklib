@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
+#include <string>
 #include <vector>
 
 namespace websocklib {
@@ -35,12 +37,24 @@ namespace websocklib {
  */
 class WebFrameSerializer {
 public:
-  WebFrameSerializer();
+  explicit WebFrameSerializer(
+      std::function<void(const std::string &)> onTextMessage = nullptr);
   ~WebFrameSerializer();
 
+  // Parse as many complete frames as possible from packets, consuming
+  // processed bytes. Calls onTextMessage for each delivered message.
   void convertRawPacketsToWebframes(std::vector<uint8_t> &packets);
 
+  // Serialize a single WebSocket frame. Client→server frames must be masked
+  // (RFC 6455 §5.3). opcode: 0x01 = text, 0x02 = binary.
+  static std::vector<uint8_t> buildFrame(uint8_t opcode, const uint8_t *payload,
+                                       size_t len);
+
 private:
+  std::function<void(const std::string &)> m_onTextMessage;
+  // Accumulates payload across continuation frames for fragmented messages
+  std::vector<uint8_t> m_fragmentBuffer;
+  uint8_t m_fragmentedOpcode{0};
 };
 
 } // namespace websocklib
