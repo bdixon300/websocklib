@@ -1,20 +1,27 @@
 #pragma once
 
 #include <arpa/inet.h>
+#include <netdb.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <poll.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
 #include <atomic>
 #include <cerrno>
+#include <chrono>
 #include <cstring>
 #include <functional>
+#include <mutex>
 #include <span>
 #include <stdexcept>
 #include <string>
 #include <thread>
 #include <vector>
+
+#include <openssl/err.h>
+#include <openssl/ssl.h>
 
 #include "tcpcommon.h"
 
@@ -22,49 +29,57 @@ namespace websocklib {
 
 class TCPClient {
 public:
-  TCPClient(const std::string &ipAddr,
-            const std::function<void(std::vector<uint8_t> &)>
-                &packetProcessorCallback,
-            unsigned int portNumber = DEFAULT_WS_PORT,
+  // host: hostname or IPv4/IPv6 address literal. DNS resolution is deferred to
+  // tcpConnect() so the constructor never blocks or throws on network errors.
+  //
+  // readIdleTimeout > 0 triggers disconnect when no bytes arrive within the
+  // interval — use this for stall detection on financial data feeds.
+  TCPClient(const std::string &host,
+            const std::function<void(std::vector<uint8_t> &)> &packetProcessorCallback,
+            unsigned int port = DEFAULT_WS_PORT,
+            bool useTls = false,
+            std::chrono::milliseconds readIdleTimeout = std::chrono::milliseconds(0),
             std::function<void()> disconnectCallback = nullptr);
   ~TCPClient();
 
-  void tcpConnect();
+  // Resolves DNS, iterates all returned addresses (IPv4 and IPv6), connects,
+  // and if useTls=true completes the TLS handshake.  connectTimeout=0 means
+  // the OS default; non-zero enforces an application-level connect deadline.
+  void tcpConnect(std::chrono::milliseconds connectTimeout = std::chrono::milliseconds(0));
   void tcpDisconnect();
-  void sendMessage(const std::span<uint8_t> &msgPayload);
+
+  // Thread-safe: acquires an internal mutex so concurrent callers cannot
+  // interleave frame bytes.
+  void sendMessage(std::span<const uint8_t> msgPayload);
+
   bool isConnected() const { return m_connected; }
+  const std::string &host() const { return m_host; }
 
 private:
-  void receiveMessages();
+  void    receiveMessages();
+  int     connectWithTimeout(int fd, const sockaddr *addr, socklen_t addrLen,
+                             std::chrono::milliseconds timeout);
+  static SSL_CTX *createSslCtx();
+  static std::string sslErrors();
+  ssize_t sslRead(uint8_t *buf, size_t len);
 
-  // IP Address to TCP server
-  std::string m_ipAddr;
-
-  // Port number to TCP Server
-  unsigned int m_portNumber;
-
-  // Callback when handling data received from TCP server
+  std::string m_host;
+  unsigned int m_port;
+  bool m_useTls;
+  std::chrono::milliseconds m_readIdleTimeout;
   std::function<void(std::vector<uint8_t> &)> m_packetProcessorCallback;
-
-  // Callback invoked once when the receive loop exits (server close or error)
   std::function<void()> m_disconnectCallback;
 
-  // Intermediate storage of packets received from TCP Server
   std::vector<uint8_t> m_packetBuffer;
-
-  // Thread to handle receiving packets asynchronously (so read/recv calls do
-  // not block)
   std::thread m_receivingThread;
 
-  // Socket FD for client
-  std::atomic<int> m_socketFd{-1};
-
-  // Bool flag to indicate a TCP connection has been established to a TCP Server
+  std::atomic<int>  m_socketFd{-1};
   std::atomic<bool> m_connected{false};
-
-  // Pipe for terminating connection/TCP server (read/recv calls are blocking
-  // till client sends data, this allows for immediate termination)
   int m_cancelPipe[2] = {-1, -1};
+
+  SSL_CTX *m_sslCtx{nullptr};
+  SSL     *m_ssl{nullptr};
+  mutable std::mutex m_sendMtx;
 };
 
 } // namespace websocklib

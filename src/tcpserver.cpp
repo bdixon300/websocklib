@@ -38,59 +38,45 @@ void TCPServer::stop() {
   m_started = false;
   m_connected = false;
 
-  // Wake any poll() call in the accept/receive loop
   if (m_cancelPipe[1] >= 0) {
     uint8_t b = 1;
     write(m_cancelPipe[1], &b, 1);
   }
 
   int clientFd = m_clientSocketFd.exchange(-1);
-  if (clientFd >= 0)
-    close(clientFd);
+  if (clientFd >= 0) close(clientFd);
 
   int serverFd = m_socketFd.exchange(-1);
-  if (serverFd >= 0)
-    close(serverFd);
+  if (serverFd >= 0) close(serverFd);
 
   if (m_acceptThread.joinable())
     m_acceptThread.join();
 
-  if (m_cancelPipe[0] >= 0) {
-    close(m_cancelPipe[0]);
-    m_cancelPipe[0] = -1;
-  }
-  if (m_cancelPipe[1] >= 0) {
-    close(m_cancelPipe[1]);
-    m_cancelPipe[1] = -1;
-  }
+  if (m_cancelPipe[0] >= 0) { close(m_cancelPipe[0]); m_cancelPipe[0] = -1; }
+  if (m_cancelPipe[1] >= 0) { close(m_cancelPipe[1]); m_cancelPipe[1] = -1; }
 }
 
 TCPServer::~TCPServer() { stop(); }
 
 void TCPServer::waitForConnection() {
   while (m_started) {
-    struct pollfd fds[2];
+    pollfd fds[2];
     fds[0] = {m_socketFd.load(), POLLIN, 0};
-    fds[1] = {m_cancelPipe[0], POLLIN, 0};
+    fds[1] = {m_cancelPipe[0],   POLLIN, 0};
 
     int r = poll(fds, 2, -1);
     if (r < 0) {
-      if (errno == EINTR)
-        continue;
+      if (errno == EINTR) continue;
       break;
     }
-    if (fds[1].revents & POLLIN)
-      break; // cancel pipe written
-    if (fds[0].revents & (POLLERR | POLLHUP | POLLNVAL))
-      break;
-    if (!(fds[0].revents & POLLIN))
-      continue;
+    if (fds[1].revents & POLLIN) break;
+    if (fds[0].revents & (POLLERR | POLLHUP | POLLNVAL)) break;
+    if (!(fds[0].revents & POLLIN)) continue;
 
     struct sockaddr_in clientAddr {};
     socklen_t len = sizeof(clientAddr);
     int fd = accept(m_socketFd, (struct sockaddr *)&clientAddr, &len);
-    if (fd < 0)
-      continue;
+    if (fd < 0) continue;
 
     m_clientSocketFd = fd;
     m_connected = true;
@@ -101,28 +87,23 @@ void TCPServer::waitForConnection() {
 void TCPServer::handleClient() {
   m_packetBuffer.clear();
   m_packetBuffer.reserve(MAX_TCP_PACKET_PAYLOAD_SIZE);
-
   receiveMessages();
-
   m_connected = false;
   int fd = m_clientSocketFd.exchange(-1);
-  if (fd >= 0)
-    close(fd);
+  if (fd >= 0) close(fd);
 }
 
-void TCPServer::sendMessage(const std::span<uint8_t> &msgPayload) {
+void TCPServer::sendMessage(std::span<const uint8_t> msgPayload) {
   if (!m_connected)
     throw std::runtime_error("No client connected");
 
   const uint8_t *ptr = msgPayload.data();
-  size_t remaining = msgPayload.size_bytes();
+  size_t remaining   = msgPayload.size();
   while (remaining > 0) {
     ssize_t sent = write(m_clientSocketFd, ptr, remaining);
     if (sent < 0) {
-      if (errno == EINTR)
-        continue;
-      throw std::runtime_error("write() failed: " +
-                               std::string(strerror(errno)));
+      if (errno == EINTR) continue;
+      throw std::runtime_error("write() failed: " + std::string(strerror(errno)));
     }
     ptr += sent;
     remaining -= static_cast<size_t>(sent);
@@ -132,26 +113,21 @@ void TCPServer::sendMessage(const std::span<uint8_t> &msgPayload) {
 void TCPServer::receiveMessages() {
   uint8_t buf[4096];
   while (m_connected) {
-    struct pollfd fds[2];
+    pollfd fds[2];
     fds[0] = {m_clientSocketFd.load(), POLLIN, 0};
-    fds[1] = {m_cancelPipe[0], POLLIN, 0};
+    fds[1] = {m_cancelPipe[0],         POLLIN, 0};
 
     int r = poll(fds, 2, -1);
     if (r < 0) {
-      if (errno == EINTR)
-        continue;
+      if (errno == EINTR) continue;
       break;
     }
-    if (fds[1].revents & POLLIN)
-      break; // cancel pipe written
-    if (fds[0].revents & (POLLERR | POLLHUP | POLLNVAL))
-      break;
-    if (!(fds[0].revents & POLLIN))
-      continue;
+    if (fds[1].revents & POLLIN) break;
+    if (fds[0].revents & (POLLERR | POLLHUP | POLLNVAL)) break;
+    if (!(fds[0].revents & POLLIN)) continue;
 
     int n = read(m_clientSocketFd, buf, sizeof(buf));
-    if (n <= 0)
-      break; // EOF or error
+    if (n <= 0) break;
 
     m_packetBuffer.insert(m_packetBuffer.end(), buf, buf + n);
     m_packetProcessorCallback(m_packetBuffer);
